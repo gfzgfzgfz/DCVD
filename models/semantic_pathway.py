@@ -22,7 +22,14 @@ class SemanticPathway(nn.Module):
 
     def _mean_pooling(self, token_embeddings, attention_mask):
         """
-        计算忽略Padding的平均池化
+        计算忽略Padding的平均池化，不同长度序列压成定长。
+        不足的补齐，多的截断。
+        if[10,1,34,9]
+        ([2,3,45,3]
+        a[1,4,2,4]
+        [0,0,0,0]
+        [0,0,0,0]
+        这相当于维度为4，序列长度为5.
         """
         # 扩展 mask 的维度
         # (Batch, Seq_Len, 1)
@@ -43,6 +50,7 @@ class SemanticPathway(nn.Module):
         exp_ids: 解释文本的 Token ID 矩阵, (Batch, Seq_len_exp)
         code_mask/exp_mask: 掩码 维度同上, (真实为1，Pad为0)
         is_training: 是否为训练模式
+        编码不在这个文件当中
         """
         
         # (Batch, Seq_Len, hidden_size)
@@ -57,5 +65,7 @@ class SemanticPathway(nn.Module):
             code_vec = self._mean_pooling(code_embeds, code_mask)
             F_C_global = self.projection(code_vec + exp_vec)
             return F_C, F_C_global
-        
+        """
+        推理只用F_C就行
+        """
         return F_C

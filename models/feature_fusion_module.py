@@ -36,8 +36,11 @@ class FeatureFusionModule(nn.Module):
         sim_matrix = torch.matmul(F_G_norm, F_C_norm.transpose(0, 1)) / self.tau
         labels = torch.arange(F_G_global.size(0), device=F_G_global.device)
         return F.cross_entropy(sim_matrix, labels)
-
-    def forward(self, F_G_seq, F_C, graph_mask=None, F_C_global=None, is_training=True):
+        """
+        B = Batch size（批大小）
+        D = Dimension（隐藏维度）
+        """
+    def forward(self, F_G_seq, F_C, graph_mask=None,code_mask=None, F_C_global=None, is_training=True):
         """
         F_G_seq: (Batch, Nodes, hidden_dim)
         F_C: (Batch, Seq_Len, hidden_dim)
@@ -57,6 +60,7 @@ class FeatureFusionModule(nn.Module):
 
         # graph_mask: (B, Nodes) -> (B, 1, Nodes)
         expanded_graph_mask = graph_mask.unsqueeze(1)
+        #增加一个维度，只有一行可以进行广播
         score_C_G = score_C_G.masked_fill(~expanded_graph_mask, -1e9)
 
         attn_C_G = F.softmax(score_C_G, dim=-1)   # 在 Nodes 维度归一化
@@ -70,6 +74,10 @@ class FeatureFusionModule(nn.Module):
 
         # (B, Nodes, D) x (B, D, Seq) -> (B, Nodes, Seq)
         score_G_C = torch.matmul(Q_G, K_C.transpose(1, 2)) / (self.hidden_dim ** 0.5)
+        if code_mask is not None:
+            expanded_code_mask = code_mask.unsqueeze(1).to(device=score_G_C.device,dtype=torch.bool)      # (B, 1, Seq)
+            score_G_C = score_G_C.masked_fill(~expanded_code_mask,torch.finfo(score_G_C.dtype).min)
+
         attn_G_C = F.softmax(score_G_C, dim=-1)   # 在 Seq 维度归一化
 
         h_G_C = torch.matmul(attn_G_C, V_C)       # (B, Nodes, D)
