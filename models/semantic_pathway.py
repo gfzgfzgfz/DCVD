@@ -1,71 +1,40 @@
 import torch
 import torch.nn as nn
 
-class SemanticPathway(nn.Module):
-    """
-    语义信息通路模块
-    """
-    def __init__(self, embedding_layer, hidden_size, out_features):
-        """
-        embedding_layer: 从LLM中剥离出来的嵌入层
-        hidden_size: 嵌入层的输出维度
-        out_features: 最终需要与F_G对齐的输出维度
-        """
-        super(SemanticPathway, self).__init__()
-        self.shared_embedding = embedding_layer
 
-        # 最后利用非线性映射将F_G和F_C映射到相同的维度
+class SemanticPathway(nn.Module):
+    """使用共享预训练词嵌入表的语义通路，不调用完整 UniXcoder 编码器。"""
+
+    def __init__(self, embedding_layer, hidden_size, out_features):
+        super().__init__()
+        self.shared_embedding = embedding_layer
         self.projection = nn.Sequential(
             nn.Linear(hidden_size, out_features),
-            nn.ReLU()
+            nn.ReLU(),
         )
 
-    def _mean_pooling(self, token_embeddings, attention_mask):
-        """
-        计算忽略Padding的平均池化，不同长度序列压成定长。
-        不足的补齐，多的截断。
-        if[10,1,34,9]
-        ([2,3,45,3]
-        a[1,4,2,4]
-        [0,0,0,0]
-        [0,0,0,0]
-        这相当于维度为4，序列长度为5.
-        """
-        # 扩展 mask 的维度
-        # (Batch, Seq_Len, 1)
-        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-        
-        # 真实Token的embedding累加
-        sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
-        
-        # 真实Token的数量
-        sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-        
-        # 平均
-        return sum_embeddings / sum_mask
+    @staticmethod
+    def _mean_pooling(token_embeddings, attention_mask):
+        expanded_mask = attention_mask.unsqueeze(-1).to(
+            device=token_embeddings.device, dtype=token_embeddings.dtype
+        )
+        summed = torch.sum(token_embeddings * expanded_mask, dim=1)
+        count = expanded_mask.sum(dim=1).clamp(min=1.0)
+        return summed / count
 
-    def forward(self, code_ids, exp_ids, code_mask, exp_mask, is_training=True):
-        """
-        code_ids: 代码的 Token ID 矩阵, (Batch, Seq_len_code)
-        exp_ids: 解释文本的 Token ID 矩阵, (Batch, Seq_len_exp)
-        code_mask/exp_mask: 掩码 维度同上, (真实为1，Pad为0)
-        is_training: 是否为训练模式
-        编码不在这个文件当中
-        """
-        
-        # (Batch, Seq_Len, hidden_size)
-        code_embeds = self.shared_embedding(code_ids)
-        exp_embeds = self.shared_embedding(exp_ids)
+    def forward(self, code_ids, exp_ids, code_mask, exp_mask):
+        # 源码与自然语言解释共享同一个 UniXcoder 词嵌入表。
+        code_embeddings = self.shared_embedding(code_ids)
+        explanation_embeddings = self.shared_embedding(exp_ids)
 
-        exp_vec = self._mean_pooling(exp_embeds, exp_mask)
+        explanation_global = self._mean_pooling(
+            explanation_embeddings, exp_mask
+        )
+        # 将解释的全局语义注入每个源码 token，再映射到跨模态公共维度。
+        code_features = self.projection(
+            code_embeddings + explanation_global.unsqueeze(1)
+        )
 
-        F_C = self.projection(code_embeds + exp_vec.unsqueeze(1))
-        
-        if is_training:
-            code_vec = self._mean_pooling(code_embeds, code_mask)
-            F_C_global = self.projection(code_vec + exp_vec)
-            return F_C, F_C_global
-        """
-        推理只用F_C就行
-        """
-        return F_C
+        code_global = self._mean_pooling(code_embeddings, code_mask)
+        semantic_global = self.projection(code_global + explanation_global)
+        return code_features, semantic_global

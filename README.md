@@ -1,3 +1,46 @@
+# 当前分支：CWE 层次多分类改造
+
+本目录在 DCVD 双通道主干上加入了根级漏洞判别、五级 CWE 分类头和分层监督对比损失。
+原始 `models/multi_task_predictor.py` 仅保留为 DCVD 行定位任务的参考，新训练入口不再调用它。
+
+## 新增模块
+
+- `models/vulnerability_encoder.py`：封装结构分支、语义分支、融合模块和 GraphCodeBERT，输出 256 维函数表征。
+- `models/hierarchical_predictor.py`：根级 Safe/Vulnerable 分类头和五个 CWE 层级分类头。
+- `losses/hierarchical_supcon.py`：同层同类样本的监督对比损失。
+- `losses/hierarchical_loss.py`：组合根级 CE、层次 CE、跨模态损失和层次对比损失。
+- `data_loader.py`：读取五级 CWE 标签，不再读取 DCVD 的行级定位标签。
+
+## 生成最小 demo 数据
+
+先安装 `requirements.txt` 中的 PyTorch Geometric，再从工作区根目录执行：
+
+```powershell
+python ".\脚本\生成层次分类_demo数据.py"
+```
+
+默认输出到 `data/demo/`，包含训练/验证 CSV、PyG 图文件、节点词表和类别数配置。
+该数据只用于联调，不能用于论文实验结果。
+
+## Demo 训练命令
+
+```powershell
+python train.py `
+  --train_pt_path ./data/demo/train_graphs.pt `
+  --train_csv_path ./data/demo/train.csv `
+  --valid_pt_path ./data/demo/valid_graphs.pt `
+  --valid_csv_path ./data/demo/valid.csv `
+  --vocab_path ./data/demo/node_vocab.json `
+  --class_counts_path ./data/demo/class_counts.json `
+  --batch_size 12 `
+  --num_train_epochs 5 `
+  --epochs_per_level 1
+```
+
+首次运行会从 Hugging Face 下载 UniXcoder 和 GraphCodeBERT。真实数据还需要额外完成 AST/CFG
+提取、CWE 层次映射和 LLM 解释生成。
+
+## 原始 DCVD 说明
 
 
 ![11](./figs/title.png)![image-20260510182333988](./figs/main.png)

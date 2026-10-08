@@ -16,8 +16,10 @@ class TransformerLLMModule(nn.Module):
         # 冻结嵌入层和pooler的参数
         for param in self.llm.embeddings.parameters():
             param.requires_grad = False
-        for param in self.llm.pooler.parameters():
-            param.requires_grad = False
+        # 某些兼容的 Transformer 没有 pooler，需要先判断是否存在。
+        if getattr(self.llm, "pooler", None) is not None:
+            for param in self.llm.pooler.parameters():
+                param.requires_grad = False
 
         # 维度投影
         self.align_projection = nn.Linear(hidden_dim, llm_hidden_size) if hidden_dim != llm_hidden_size else nn.Identity()

@@ -1,0 +1,10 @@
+{
+  "level_num_classes": [
+    2,
+    2,
+    2,
+    2,
+    2
+  ],
+  "note": "0=CWE-119 demo path, 1=CWE-78 demo path"
+}

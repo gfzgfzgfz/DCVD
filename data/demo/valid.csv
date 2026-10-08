@@ -1,0 +1,13 @@
+index,func_before,llm_explanation,root_label,cwe_id,pair_id,is_fixed,level_1,level_mask_1,level_2,level_mask_2,level_3,level_mask_3,level_4,level_mask_4,level_5,level_mask_5
+36,int safe_36(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-0,1,-100,0,-100,0,-100,0,-100,0,-100,0
+37,int safe_37(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-0,1,-100,0,-100,0,-100,0,-100,0,-100,0
+38,int safe_38(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-1,1,-100,0,-100,0,-100,0,-100,0,-100,0
+39,int safe_39(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-1,1,-100,0,-100,0,-100,0,-100,0,-100,0
+40,"void copy_40(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-0,0,0,1,0,1,0,1,0,1,0,1
+41,"void copy_41(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-0,0,0,1,0,1,0,1,0,1,0,1
+42,"void copy_42(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-1,0,0,1,0,1,0,1,0,1,0,1
+43,"void copy_43(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-1,0,0,1,0,1,0,1,0,1,0,1
+44,"int command_44(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-0,0,1,1,1,1,1,1,1,1,1,1
+45,"int command_45(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-0,0,1,1,1,1,1,1,1,1,1,1
+46,"int command_46(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-1,0,1,1,1,1,1,1,1,1,1,1
+47,"int command_47(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-1,0,1,1,1,1,1,1,1,1,1,1

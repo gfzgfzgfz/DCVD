@@ -1,0 +1,37 @@
+index,func_before,llm_explanation,root_label,cwe_id,pair_id,is_fixed,level_1,level_mask_1,level_2,level_mask_2,level_3,level_mask_3,level_4,level_mask_4,level_5,level_mask_5
+0,int safe_0(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-0,1,-100,0,-100,0,-100,0,-100,0,-100,0
+1,int safe_1(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-0,1,-100,0,-100,0,-100,0,-100,0,-100,0
+2,int safe_2(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-1,1,-100,0,-100,0,-100,0,-100,0,-100,0
+3,int safe_3(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-1,1,-100,0,-100,0,-100,0,-100,0,-100,0
+4,int safe_4(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-2,1,-100,0,-100,0,-100,0,-100,0,-100,0
+5,int safe_5(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-2,1,-100,0,-100,0,-100,0,-100,0,-100,0
+6,int safe_6(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-3,1,-100,0,-100,0,-100,0,-100,0,-100,0
+7,int safe_7(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-3,1,-100,0,-100,0,-100,0,-100,0,-100,0
+8,int safe_8(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-4,1,-100,0,-100,0,-100,0,-100,0,-100,0
+9,int safe_9(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-4,1,-100,0,-100,0,-100,0,-100,0,-100,0
+10,int safe_10(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-5,1,-100,0,-100,0,-100,0,-100,0,-100,0
+11,int safe_11(int x) { if (x < 0) return -1; return x + 1; },The function validates its integer input and returns a bounded result.,0,SAFE,pair-SAFE-5,1,-100,0,-100,0,-100,0,-100,0,-100,0
+12,"void copy_12(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-0,0,0,1,0,1,0,1,0,1,0,1
+13,"void copy_13(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-0,0,0,1,0,1,0,1,0,1,0,1
+14,"void copy_14(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-1,0,0,1,0,1,0,1,0,1,0,1
+15,"void copy_15(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-1,0,0,1,0,1,0,1,0,1,0,1
+16,"void copy_16(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-2,0,0,1,0,1,0,1,0,1,0,1
+17,"void copy_17(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-2,0,0,1,0,1,0,1,0,1,0,1
+18,"void copy_18(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-3,0,0,1,0,1,0,1,0,1,0,1
+19,"void copy_19(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-3,0,0,1,0,1,0,1,0,1,0,1
+20,"void copy_20(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-4,0,0,1,0,1,0,1,0,1,0,1
+21,"void copy_21(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-4,0,0,1,0,1,0,1,0,1,0,1
+22,"void copy_22(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-5,0,0,1,0,1,0,1,0,1,0,1
+23,"void copy_23(char *src) { char dst[8]; strcpy(dst, src); }",The function copies untrusted data into a fixed-size buffer without a bound check.,1,CWE-119,pair-CWE-119-5,0,0,1,0,1,0,1,0,1,0,1
+24,"int command_24(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-0,0,1,1,1,1,1,1,1,1,1,1
+25,"int command_25(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-0,0,1,1,1,1,1,1,1,1,1,1
+26,"int command_26(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-1,0,1,1,1,1,1,1,1,1,1,1
+27,"int command_27(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-1,0,1,1,1,1,1,1,1,1,1,1
+28,"int command_28(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-2,0,1,1,1,1,1,1,1,1,1,1
+29,"int command_29(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-2,0,1,1,1,1,1,1,1,1,1,1
+30,"int command_30(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-3,0,1,1,1,1,1,1,1,1,1,1
+31,"int command_31(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-3,0,1,1,1,1,1,1,1,1,1,1
+32,"int command_32(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-4,0,1,1,1,1,1,1,1,1,1,1
+33,"int command_33(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-4,0,1,1,1,1,1,1,1,1,1,1
+34,"int command_34(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-5,0,1,1,1,1,1,1,1,1,1,1
+35,"int command_35(char *user) { char cmd[64]; sprintf(cmd, ""ls %s"", user); return system(cmd); }",The function concatenates untrusted input into an operating-system command.,1,CWE-78,pair-CWE-78-5,0,1,1,1,1,1,1,1,1,1,1

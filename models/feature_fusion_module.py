@@ -2,15 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class FeatureFusionModule(nn.Module):
-    """
-    特征融合模块
-    双向交叉注意力机制和对比学习损失
-    """
+    """对齐并融合图结构特征与代码 token 语义特征。"""
+
     def __init__(self, hidden_dim, tau=0.1, alpha=0.2):
-        super(FeatureFusionModule, self).__init__()
+        super().__init__()
         self.hidden_dim = hidden_dim
-        # 温度系数 tau
         self.tau = tau
 
         self.W_Q_C = nn.Linear(hidden_dim, hidden_dim, bias=False)
@@ -20,86 +18,98 @@ class FeatureFusionModule(nn.Module):
         self.W_Q_G = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.W_K_C = nn.Linear(hidden_dim, hidden_dim, bias=False)
         self.W_V_C = nn.Linear(hidden_dim, hidden_dim, bias=False)
-        
-        # 融合映射矩阵Wm与激活函数
+
         self.W_m = nn.Linear(2 * hidden_dim, hidden_dim)
         self.leaky_relu = nn.LeakyReLU(alpha)
 
-    def masked_mean(self, x, mask):
-        mask = mask.unsqueeze(-1).float()
-        x = x * mask
-        return x.sum(dim=1) / mask.sum(dim=1).clamp(min=1e-6)
+    def compute_contrastive_loss(self, graph_global, code_global):
+        """计算图到代码、代码到图两个方向的对称 InfoNCE 损失。"""
+        graph_global = F.normalize(graph_global, p=2, dim=-1)
+        code_global = F.normalize(code_global, p=2, dim=-1)
+        logits = torch.matmul(graph_global, code_global.transpose(0, 1)) / self.tau
+        labels = torch.arange(logits.size(0), device=logits.device)
+        loss_g2c = F.cross_entropy(logits, labels)
+        loss_c2g = F.cross_entropy(logits.transpose(0, 1), labels)
+        return 0.5 * (loss_g2c + loss_c2g)
 
-    def compute_contrastive_loss(self, F_G_global, F_C_global):
-        F_G_norm = F.normalize(F_G_global, p=2, dim=-1)
-        F_C_norm = F.normalize(F_C_global, p=2, dim=-1)
-        sim_matrix = torch.matmul(F_G_norm, F_C_norm.transpose(0, 1)) / self.tau
-        labels = torch.arange(F_G_global.size(0), device=F_G_global.device)
-        return F.cross_entropy(sim_matrix, labels)
-        """
-        B = Batch size（批大小）
-        D = Dimension（隐藏维度）
-        """
-    def forward(self, F_G_seq, F_C, graph_mask=None,code_mask=None, F_C_global=None, is_training=True):
-        """
-        F_G_seq: (Batch, Nodes, hidden_dim)
-        F_C: (Batch, Seq_Len, hidden_dim)
-        graph_mask: (Batch, Nodes)  真实节点为True, padding为False
-        F_C_global: (Batch, hidden_dim)
-        """
-        seq_len = F_C.size(1)
+    def forward(
+        self,
+        F_G_seq,
+        F_C,
+        graph_mask,
+        code_mask,
+        F_C_global=None,
+        is_training=True,
+    ):
+        if graph_mask is None or code_mask is None:
+            raise ValueError("graph_mask and code_mask are required")
+        if graph_mask.shape != F_G_seq.shape[:2]:
+            raise ValueError(
+                f"graph_mask shape {tuple(graph_mask.shape)} does not match "
+                f"F_G_seq shape {tuple(F_G_seq.shape[:2])}"
+            )
+        if code_mask.shape != F_C.shape[:2]:
+            raise ValueError(
+                f"code_mask shape {tuple(code_mask.shape)} does not match "
+                f"F_C shape {tuple(F_C.shape[:2])}"
+            )
 
-        # === (C 查 G) ===
-        # token序列去查询图节点序列
-        Q_C = self.W_Q_C(F_C)         # (B, Seq, D)
-        K_G = self.W_K_G(F_G_seq)     # (B, Nodes, D)
-        V_G = self.W_V_G(F_G_seq)     # (B, Nodes, D)
+        graph_valid = graph_mask[:, None, :].to(
+            device=F_G_seq.device, dtype=torch.bool
+        )
+        code_valid = code_mask[:, None, :].to(device=F_C.device, dtype=torch.bool)
 
-        # (B, Seq, D) x (B, D, Nodes) -> (B, Seq, Nodes)
-        score_C_G = torch.matmul(Q_C, K_G.transpose(1, 2)) / (self.hidden_dim ** 0.5)
+        # 代码 token 查询图节点；graph_valid 屏蔽补齐的虚拟节点。
+        query_code = self.W_Q_C(F_C)
+        key_graph = self.W_K_G(F_G_seq)
+        value_graph = self.W_V_G(F_G_seq)
+        score_c2g = torch.matmul(query_code, key_graph.transpose(1, 2))
+        score_c2g = score_c2g / (self.hidden_dim**0.5)
+        score_c2g = score_c2g.masked_fill(
+            ~graph_valid, torch.finfo(score_c2g.dtype).min
+        )
+        hidden_c2g = torch.matmul(F.softmax(score_c2g, dim=-1), value_graph)
 
-        # graph_mask: (B, Nodes) -> (B, 1, Nodes)
-        expanded_graph_mask = graph_mask.unsqueeze(1)
-        #增加一个维度，只有一行可以进行广播
-        score_C_G = score_C_G.masked_fill(~expanded_graph_mask, -1e9)
+        # 图节点查询代码 token；code_valid 保证 padding token 不接收注意力。
+        query_graph = self.W_Q_G(F_G_seq)
+        key_code = self.W_K_C(F_C)
+        value_code = self.W_V_C(F_C)
+        score_g2c = torch.matmul(query_graph, key_code.transpose(1, 2))
+        score_g2c = score_g2c / (self.hidden_dim**0.5)
+        score_g2c = score_g2c.masked_fill(
+            ~code_valid, torch.finfo(score_g2c.dtype).min
+        )
+        hidden_g2c = torch.matmul(F.softmax(score_g2c, dim=-1), value_code)
 
-        attn_C_G = F.softmax(score_C_G, dim=-1)   # 在 Nodes 维度归一化
-        h_C_G = torch.matmul(attn_C_G, V_G)       # (B, Seq, D)
+        # 将节点级结果池化成图级向量，再广播到每个代码 token。
+        graph_mask_float = graph_mask.unsqueeze(-1).to(
+            device=hidden_g2c.device, dtype=hidden_g2c.dtype
+        )
+        graph_global = (hidden_g2c * graph_mask_float).sum(dim=1)
+        graph_global = graph_global / graph_mask_float.sum(dim=1).clamp(min=1.0)
+        graph_for_each_token = graph_global.unsqueeze(1).expand(-1, F_C.size(1), -1)
 
-        # === (G 查 C) ===
-        # 图节点序列去查询token序列
-        Q_G = self.W_Q_G(F_G_seq)     # (B, Nodes, D)
-        K_C = self.W_K_C(F_C)         # (B, Seq, D)
-        V_C = self.W_V_C(F_C)         # (B, Seq, D)
+        # 融合结果保持 [B, Seq, D]，并显式清零代码 padding 位置。
+        fused = torch.cat([hidden_c2g, graph_for_each_token], dim=-1)
+        fused = self.leaky_relu(self.W_m(fused))
+        fused = fused * code_mask.unsqueeze(-1).to(
+            device=fused.device, dtype=fused.dtype
+        )
 
-        # (B, Nodes, D) x (B, D, Seq) -> (B, Nodes, Seq)
-        score_G_C = torch.matmul(Q_G, K_C.transpose(1, 2)) / (self.hidden_dim ** 0.5)
-        if code_mask is not None:
-            expanded_code_mask = code_mask.unsqueeze(1).to(device=score_G_C.device,dtype=torch.bool)      # (B, 1, Seq)
-            score_G_C = score_G_C.masked_fill(~expanded_code_mask,torch.finfo(score_G_C.dtype).min)
+        if not is_training:
+            return fused
+        if F_C_global is None:
+            raise ValueError("F_C_global is required while training")
 
-        attn_G_C = F.softmax(score_G_C, dim=-1)   # 在 Seq 维度归一化
-
-        h_G_C = torch.matmul(attn_G_C, V_C)       # (B, Nodes, D)
-
-        # === 为了和 token 序列对齐，先把图侧结果池化成一个全局向量 ===
-        mask_float = graph_mask.unsqueeze(-1).float()   # (B, Nodes, 1)
-        h_G_C_sum = torch.sum(h_G_C * mask_float, dim=1)   # (B, D)
-        h_G_C_count = torch.clamp(mask_float.sum(dim=1), min=1e-6)  # (B, 1)
-        h_G_C_global = h_G_C_sum / h_G_C_count           # (B, D)
-
-        # 扩展到 token 维度，方便拼接
-        h_G_C_expanded = h_G_C_global.unsqueeze(1).expand(-1, seq_len, -1)  # (B, Seq, D)
-
-        # === 融合 ===
-        concat_h = torch.cat([h_C_G, h_G_C_expanded], dim=-1)   # (B, Seq, 2D)
-        h_m = self.leaky_relu(self.W_m(concat_h))               # (B, Seq, D)
-
-        if is_training:
-            mask_float = graph_mask.unsqueeze(-1).float()
-            F_G_global = torch.sum(F_G_seq * mask_float, dim=1) / torch.clamp(mask_float.sum(dim=1), min=1e-6)
-
-            L_ag = self.compute_contrastive_loss(F_G_global, F_C_global)
-            return h_m, L_ag
-
-        return h_m
+        # 使用融合前的结构全局向量与语义全局向量计算跨模态对齐损失。
+        source_graph_mask = graph_mask.unsqueeze(-1).to(
+            device=F_G_seq.device, dtype=F_G_seq.dtype
+        )
+        source_graph_global = (F_G_seq * source_graph_mask).sum(dim=1)
+        source_graph_global = source_graph_global / source_graph_mask.sum(dim=1).clamp(
+            min=1.0
+        )
+        loss_cross_modal = self.compute_contrastive_loss(
+            source_graph_global, F_C_global
+        )
+        return fused, loss_cross_modal
