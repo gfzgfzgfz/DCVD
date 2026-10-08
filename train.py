@@ -14,7 +14,10 @@ from data_loader import VulDataLoader
 from losses import SupervisedContrastiveLoss, compute_hierarchical_objective
 from models.control_pathway import ControlPathway
 from models.feature_fusion_module import FeatureFusionModule
-from models.hierarchical_predictor import HierarchicalPredictor
+from models.hierarchical_predictor import (
+    HierarchicalPredictor,
+    decode_hierarchical_predictions,
+)
 from models.semantic_pathway import SemanticPathway
 from models.transformer_llm_module import TransformerLLMModule
 from models.vulnerability_encoder import VulnerabilityEncoder
@@ -69,7 +72,9 @@ def parse_args():
     parser.add_argument("--root_weight", type=float, default=1.0)
     parser.add_argument("--hierarchy_weight", type=float, default=1.0)
     parser.add_argument("--cross_modal_weight", type=float, default=0.1)
-    parser.add_argument("--contrastive_weight", type=float, default=0.3)
+    # 与论文中的 lambda、mu 对应：分别控制根级与 CWE 层级 SupCon。
+    parser.add_argument("--root_contrastive_weight", type=float, default=0.5)
+    parser.add_argument("--level_contrastive_weight", type=float, default=0.5)
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
@@ -236,19 +241,26 @@ def evaluate(
         root_logits, hierarchy_logits = predictor(representation)
         root_labels, hierarchy_labels, hierarchy_mask = unpack_labels(batch)
 
+        # 推理/验证使用预测根标签门控；预测为 Safe 时五层结果均为 -100。
+        root_batch_predictions, gated_level_predictions, _ = (
+            decode_hierarchical_predictions(root_logits, hierarchy_logits)
+        )
+
         gathered_root_predictions, gathered_root_labels = accelerator.gather_for_metrics(
-            (root_logits.argmax(dim=-1), root_labels)
+            (root_batch_predictions, root_labels)
         )
         root_predictions.append(gathered_root_predictions.cpu())
         root_targets.append(gathered_root_labels.cpu())
 
         for level in range(5):
+            # 真实标签只用于确定哪些样本具备 CWE 评估目标；预测门控由上方完成。
+            # 若真实漏洞被根级误判为 Safe，其 -100 预测会在 CWE 指标中计为错误。
             valid = root_labels.eq(1) & hierarchy_mask[:, level]
             if not valid.any():
                 continue
             predictions, targets = accelerator.gather_for_metrics(
                 (
-                    hierarchy_logits[level][valid].argmax(dim=-1),
+                    gated_level_predictions[valid, level],
                     hierarchy_labels[valid, level],
                 )
             )
@@ -391,7 +403,8 @@ def main():
                     root_weight=args.root_weight,
                     hierarchy_weight=args.hierarchy_weight,
                     cross_modal_weight=args.cross_modal_weight,
-                    contrastive_weight=args.contrastive_weight,
+                    root_contrastive_weight=args.root_contrastive_weight,
+                    level_contrastive_weight=args.level_contrastive_weight,
                 )
                 accelerator.backward(loss)
                 if accelerator.sync_gradients:

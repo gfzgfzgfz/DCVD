@@ -1,4 +1,33 @@
+import torch
 import torch.nn as nn
+
+
+def decode_hierarchical_predictions(
+    root_logits,
+    level_logits,
+    invalid_label=-100,
+):
+    """使用根级预测进行推理门控，Safe 样本不输出后续 CWE 标签。"""
+    if len(level_logits) != 5:
+        raise ValueError("Exactly five CWE hierarchy logits are required")
+
+    root_predictions = root_logits.argmax(dim=-1)
+    predicted_vulnerable = root_predictions.eq(1)
+    level_predictions = torch.full(
+        (root_predictions.size(0), 5),
+        fill_value=invalid_label,
+        dtype=torch.long,
+        device=root_predictions.device,
+    )
+
+    # 只有根级预测为 Vulnerable 的样本才保留五层 CWE 预测。
+    if predicted_vulnerable.any():
+        for level, logits in enumerate(level_logits):
+            level_predictions[predicted_vulnerable, level] = logits[
+                predicted_vulnerable
+            ].argmax(dim=-1)
+
+    return root_predictions, level_predictions, predicted_vulnerable
 
 
 class HierarchicalPredictor(nn.Module):

@@ -6,10 +6,22 @@
 ## 新增模块
 
 - `models/vulnerability_encoder.py`：封装结构分支、语义分支、融合模块和 GraphCodeBERT，输出 256 维函数表征。
-- `models/hierarchical_predictor.py`：根级 Safe/Vulnerable 分类头和五个 CWE 层级分类头。
+- `models/hierarchical_predictor.py`：根级 Safe/Vulnerable 分类头、五个 CWE 层级分类头，以及按根级预测阻断 Safe 样本的推理解码函数。
 - `losses/hierarchical_supcon.py`：同层同类样本的监督对比损失。
-- `losses/hierarchical_loss.py`：组合根级 CE、层次 CE、跨模态损失和层次对比损失。
+- `losses/hierarchical_loss.py`：组合根级 CE/SupCon、五层 CWE CE/SupCon 求和及跨模态损失。训练时使用真实根标签门控，Safe 样本不参与后五层损失。
 - `data_loader.py`：读取五级 CWE 标签，不再读取 DCVD 的行级定位标签。
+
+当前损失形式为：
+
+```text
+L = root_weight × (L_root_CE + λ × L_root_SupCon)
+  + hierarchy_weight × Σ_l α_l(L_level_l_CE + μ × L_level_l_SupCon)
+  + cross_modal_weight × L_cm
+```
+
+其中 `λ` 对应 `--root_contrastive_weight`，`μ` 对应
+`--level_contrastive_weight`，默认均为 `0.5`。推理时根级预测为 Safe 的样本，
+五层 CWE 预测统一返回 `-100`，不再给出漏洞类型。
 
 ## 生成最小 demo 数据
 

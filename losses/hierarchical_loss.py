@@ -15,10 +15,11 @@ def compute_hierarchical_objective(
     root_weight=1.0,
     hierarchy_weight=1.0,
     cross_modal_weight=0.1,
-    contrastive_weight=0.3,
+    root_contrastive_weight=0.5,
+    level_contrastive_weight=0.5,
     level_weights=None,
 ):
-    """计算根级 CE、层次 CE、跨模态损失和层次监督对比损失。"""
+    """计算根级、五层 CWE、跨模态对齐的联合损失。"""
     if len(level_logits) != 5:
         raise ValueError("Five hierarchy logits are required")
     if level_labels.ndim != 2 or level_labels.size(1) != 5:
@@ -30,45 +31,49 @@ def compute_hierarchical_objective(
     if level_weights is None:
         level_weights = [1.0] * 5
 
-    loss_root = F.cross_entropy(root_logits, root_labels)
-    loss_hierarchy = representation.new_zeros(())
-    loss_hierarchical_contrastive = representation.new_zeros(())
-    active_weight = 0.0
+    # 根级对全部样本计算：CE 学习判别边界，SupCon 分离 Safe/Vulnerable 表征。
+    loss_root_ce = F.cross_entropy(root_logits, root_labels)
+    loss_root_contrastive = contrastive_loss(representation, root_labels)
 
-    # 安全样本只参与根级判别，后续 CWE 层级通过 valid mask 排除。
+    loss_hierarchy_ce = representation.new_zeros(())
+    loss_hierarchy_contrastive = representation.new_zeros(())
+
+    # 训练阶段必须使用真实根标签门控：Safe 样本不参与后五层 CWE 损失。
     vulnerable = root_labels.eq(1)
     for level in range(active_depth):
         valid = vulnerable & level_mask[:, level].bool()
         if valid.any():
             weight = float(level_weights[level])
-            loss_hierarchy = loss_hierarchy + weight * F.cross_entropy(
+            # 按论文公式对已开放层级直接加权求和，不再除以有效层数。
+            loss_hierarchy_ce = loss_hierarchy_ce + weight * F.cross_entropy(
                 level_logits[level][valid], level_labels[valid, level]
             )
-            loss_hierarchical_contrastive = (
-                loss_hierarchical_contrastive
+            loss_hierarchy_contrastive = (
+                loss_hierarchy_contrastive
                 + weight
                 * contrastive_loss(
                     representation[valid], level_labels[valid, level]
                 )
             )
-            active_weight += weight
 
-    if active_weight > 0:
-        loss_hierarchy = loss_hierarchy / active_weight
-        loss_hierarchical_contrastive = (
-            loss_hierarchical_contrastive / active_weight
-        )
+    loss_root = loss_root_ce + root_contrastive_weight * loss_root_contrastive
+    loss_hierarchy = (
+        loss_hierarchy_ce
+        + level_contrastive_weight * loss_hierarchy_contrastive
+    )
 
     total = (
         root_weight * loss_root
         + hierarchy_weight * loss_hierarchy
         + cross_modal_weight * loss_cross_modal
-        + contrastive_weight * loss_hierarchical_contrastive
     )
     components = {
-        "root": loss_root.detach(),
-        "hierarchy": loss_hierarchy.detach(),
+        "root_ce": loss_root_ce.detach(),
+        "root_contrastive": loss_root_contrastive.detach(),
+        "hierarchy_ce_sum": loss_hierarchy_ce.detach(),
+        "hierarchy_contrastive_sum": loss_hierarchy_contrastive.detach(),
         "cross_modal": loss_cross_modal.detach(),
-        "hierarchical_contrastive": loss_hierarchical_contrastive.detach(),
+        "root_total": loss_root.detach(),
+        "hierarchy_total": loss_hierarchy.detach(),
     }
     return total, components
