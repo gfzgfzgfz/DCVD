@@ -1,0 +1,14 @@
+# Windows CPU 演示环境（Python 3.11）
+# 当前已验证环境：E:\envirment\anaconda\conda\envs\dcvd-cwe
+
+torch==2.8.0
+torch-geometric==2.6.1
+
+transformers==4.46.3
+accelerate==1.1.1
+sentencepiece==0.2.0
+safetensors==0.4.5
+
+pandas==2.2.3
+tqdm==4.67.1
+tensorboard==2.18.0
